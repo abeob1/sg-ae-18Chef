@@ -188,6 +188,7 @@ Module modCommon
             ConnectToCompany = RTN_SUCCESS
         Catch ex As Exception
             sErrDesc = ex.Message
+            Call WriteToLogFile(sErrDesc, sFuncName)
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with ERROR", sFuncName)
             ConnectToCompany = RTN_ERROR
         End Try

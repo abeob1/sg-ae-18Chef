@@ -54,8 +54,8 @@ Module modLogging
             'strFileName = System.IO.Directory.GetCurrentDirectory() & "\" & LOG_FILE_ERROR & ".log"
             'strArchFileName = System.IO.Directory.GetCurrentDirectory() & "\" & LOG_FILE_ERROR_ARCH & Format(Now(), "yyMMddHHMMss") & ".log"
 
-            strFileName = p_oCompDef.sLogPath & "\" & LOG_FILE_DEBUG & ".log"
-            strArchFileName = p_oCompDef.sLogPath & "\" & LOG_FILE_DEBUG_ARCH & Format(Now(), "yyMMddHHMMss") & ".log"
+            strFileName = p_oCompDef.sLogPath & "\" & LOG_FILE_ERROR & ".log"
+            strArchFileName = p_oCompDef.sLogPath & "\" & LOG_FILE_ERROR_ARCH & Format(Now(), "yyMMddHHMMss") & ".log"
 
             If intCheckFileForDelete = FILE_SIZE_CHECK_ENABLE Then
                 If File.Exists(strFileName) Then
