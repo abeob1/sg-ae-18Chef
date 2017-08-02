@@ -89,7 +89,7 @@
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling FileMoveToArchive()", sFuncName)
             FileMoveToArchive(file_Header, file_Header.FullName, RTN_SUCCESS)
             FileMoveToArchive(file_Detail, file_Detail.FullName, RTN_SUCCESS)
-            FileMoveToArchive(file_Detail, file_Payment.FullName, RTN_SUCCESS)
+            FileMoveToArchive(file_Payment, file_Payment.FullName, RTN_SUCCESS)
 
             'Insert Success Notificaiton into Table..
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling AddDataToTable()", sFuncName)
@@ -118,7 +118,7 @@
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling FileMoveToArchive()", sFuncName)
             FileMoveToArchive(file_Header, file_Header.FullName, RTN_ERROR)
             FileMoveToArchive(file_Detail, file_Detail.FullName, RTN_ERROR)
-            FileMoveToArchive(file_Detail, file_Payment.FullName, RTN_ERROR)
+            FileMoveToArchive(file_Payment, file_Payment.FullName, RTN_ERROR)
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with ERROR", sFuncName)
             ProcessInvoiceFiles = RTN_ERROR
