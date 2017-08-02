@@ -58,11 +58,11 @@
                                 oDvCollections.RowFilter = "FILEID ='" & oDtHeader_Group.Rows(i).Item(0).ToString.Trim() & "' "
 
                                 If oDvCollections.Count > 0 Then
-                                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling CreatePayment()", sFuncName)
                                     Dim oDtCollections_Grouped As DataTable
                                     oDtCollections_Grouped = oDvCollections.ToTable
                                     Dim oDvCollections_Grouped As DataView = New DataView(oDtCollections_Grouped)
 
+                                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling CreatePayment()", sFuncName)
                                     If CreatePayment(oDvCollections_Grouped, sInvDocEntry, sErrDesc) <> RTN_SUCCESS Then Throw New ArgumentException(sErrDesc)
                                 End If
                             End If
@@ -89,13 +89,15 @@
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling FileMoveToArchive()", sFuncName)
             FileMoveToArchive(file_Header, file_Header.FullName, RTN_SUCCESS)
             FileMoveToArchive(file_Detail, file_Detail.FullName, RTN_SUCCESS)
+            FileMoveToArchive(file_Detail, file_Payment.FullName, RTN_SUCCESS)
 
             'Insert Success Notificaiton into Table..
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling AddDataToTable()", sFuncName)
             AddDataToTable(p_oDtSuccess, file_Header.Name, "Success")
             AddDataToTable(p_oDtSuccess, file_Detail.Name, "Success")
+            AddDataToTable(p_oDtSuccess, file_Payment.Name, "Success")
 
-            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Header File " & file_Header.FullName & " & Detail file " & file_Detail.FullName & " uploaded successfully", sFuncName)
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Header File " & file_Header.FullName & " & Detail file " & file_Detail.FullName & " & Payment file " & file_Payment.FullName & " uploaded successfully", sFuncName)
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with SUCCESS", sFuncName)
             ProcessInvoiceFiles = RTN_SUCCESS
@@ -110,11 +112,13 @@
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling AddDataToTable()", sFuncName)
             AddDataToTable(p_oDtError, file_Header.Name, "Error", sErrDesc)
             AddDataToTable(p_oDtError, file_Detail.Name, "Error", sErrDesc)
+            AddDataToTable(p_oDtError, file_Payment.Name, "Error", sErrDesc)
             'error condition
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling FileMoveToArchive()", sFuncName)
             FileMoveToArchive(file_Header, file_Header.FullName, RTN_ERROR)
             FileMoveToArchive(file_Detail, file_Detail.FullName, RTN_ERROR)
+            FileMoveToArchive(file_Detail, file_Payment.FullName, RTN_ERROR)
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with ERROR", sFuncName)
             ProcessInvoiceFiles = RTN_ERROR
@@ -224,46 +228,46 @@
             odt = oDvDetail.ToTable
             Dim oDvDetail_Grouped As DataView = New DataView(odt)
 
+            Dim oInvoice As SAPbobsCOM.Documents
+            oInvoice = p_oCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oInvoices)
+
+            sCardCode = "C" & oDvHeader(0)(4).ToString.Trim()
+            dtBPMaster.DefaultView.RowFilter = "UPPERCARDCODE = '" & sCardCode.ToUpper() & "'"
+            If dtBPMaster.DefaultView.Count = 0 Then
+                sErrDesc = "CardCode :: " & sCardCode & " Not exists in SAP."
+                Console.WriteLine(sErrDesc)
+                Call WriteToLogFile(sErrDesc, sFuncName)
+                Throw New ArgumentException(sErrDesc)
+            Else
+                sCardCode = dtBPMaster.DefaultView.Item(0)(0).ToString().Trim()
+            End If
+
+            Dim iIndex As Integer = oDvHeader(0)(5).ToString.IndexOf(" ")
+            Dim sDate As String
+            If iIndex > -1 Then
+                sDate = oDvHeader(0)(5).ToString.Substring(0, iIndex)
+            Else
+                sDate = oDvHeader(0)(5).ToString
+            End If
+            Dim dtDocDate As Date
+            Dim format() = {"dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "dd.MM.yyyy", "yyyyMMdd", "MMddYYYY", "M/dd/yyyy", "MM/dd/YYYY"}
+            Date.TryParseExact(sDate, format, System.Globalization.DateTimeFormatInfo.InvariantInfo, Globalization.DateTimeStyles.None, dtDocDate)
+
+            oInvoice.CardCode = sCardCode
+            oInvoice.DocDate = dtDocDate
+            oInvoice.NumAtCard = oDvHeader(0)(4).ToString.Trim() & "-" & sDate & "-" & oDvHeader(0)(7).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_Concept").Value = oDvHeader(0)(2).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_BRAND").Value = oDvHeader(0)(3).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_Outlet").Value = oDvHeader(0)(4).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_POSNo").Value = oDvHeader(0)(4).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_MEALPERIOD").Value = oDvHeader(0)(6).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_HOUR").Value = oDvHeader(0)(7).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_Covers").Value = oDvHeader(0)(14).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_NetTables").Value = oDvHeader(0)(15).ToString.Trim()
+            oInvoice.DocTotal = CDbl(oDvHeader(0)(8))
+
+            Dim iCount As Integer = 0
             If oDvDetail_Grouped.Count > 0 Then
-                Dim oInvoice As SAPbobsCOM.Documents
-                oInvoice = p_oCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oInvoices)
-
-                sCardCode = "C" & oDvHeader(0)(4).ToString.Trim()
-                dtBPMaster.DefaultView.RowFilter = "UPPERCARDCODE = '" & sCardCode.ToUpper() & "'"
-                If dtBPMaster.DefaultView.Count = 0 Then
-                    sErrDesc = "CardCode :: " & sCardCode & " Not exists in SAP."
-                    Console.WriteLine(sErrDesc)
-                    Call WriteToLogFile(sErrDesc, sFuncName)
-                    Throw New ArgumentException(sErrDesc)
-                Else
-                    sCardCode = dtBPMaster.DefaultView.Item(0)(0).ToString().Trim()
-                End If
-
-                Dim iIndex As Integer = oDvHeader(0)(5).ToString.IndexOf(" ")
-                Dim sDate As String
-                If iIndex > -1 Then
-                    sDate = oDvHeader(0)(5).ToString.Substring(0, iIndex)
-                Else
-                    sDate = oDvHeader(0)(5).ToString
-                End If
-                Dim dtDocDate As Date
-                Dim format() = {"dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "dd.MM.yyyy", "yyyyMMdd", "MMddYYYY", "M/dd/yyyy", "MM/dd/YYYY"}
-                Date.TryParseExact(sDate, format, System.Globalization.DateTimeFormatInfo.InvariantInfo, Globalization.DateTimeStyles.None, dtDocDate)
-
-                oInvoice.CardCode = sCardCode
-                oInvoice.DocDate = dtDocDate
-                oInvoice.NumAtCard = oDvHeader(0)(4).ToString.Trim() & "-" & sDate & "-" & oDvHeader(0)(7).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_Concept").Value = oDvHeader(0)(2).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_BRAND").Value = oDvHeader(0)(3).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_Outlet").Value = oDvHeader(0)(4).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_POSNo").Value = oDvHeader(0)(4).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_MEALPERIOD").Value = oDvHeader(0)(6).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_HOUR").Value = oDvHeader(0)(7).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_Covers").Value = oDvHeader(0)(14).ToString.Trim()
-                oInvoice.UserFields.Fields.Item("U_NetTables").Value = oDvHeader(0)(15).ToString.Trim()
-                oInvoice.DocTotal = CDbl(oDvHeader(0)(8))
-
-                Dim iCount As Integer = 0
                 For i As Integer = 0 To oDvDetail_Grouped.Count - 1
                     Dim sItemCode As String = String.Empty
                     Dim sDeliveryMode As String = String.Empty
@@ -316,99 +320,100 @@
                     bIsLineAdded = True
                     iCount = iCount + 1
                 Next
-                If Not (oDvHeader(0)(9).ToString = String.Empty) Then
-                    If (CDbl(oDvHeader(0)(9).ToString.Trim() <> 0)) Then
-                        If iCount > 0 Then
-                            oInvoice.Lines.Add()
-                        End If
-
-                        dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sServChargeItem & "'"
-                        If dtVatGroup.DefaultView.Count = 0 Then
-                            sErrDesc = "ItemCode :: " & p_oCompDef.sServChargeItem & " provided does not exist in SAP."
-                            Call WriteToLogFile(sErrDesc, sFuncName)
-                            Throw New ArgumentException(sErrDesc)
-                        End If
-                        oInvoice.Lines.ItemCode = p_oCompDef.sServChargeItem
-                        oInvoice.Lines.Quantity = 1
-                        oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(9))
-                        bIsLineAdded = True
-                        iCount = iCount + 1
+            Else
+                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("No Detail file is found for file id " & sFileId, sFuncName)
+            End If
+            If Not (oDvHeader(0)(9).ToString = String.Empty) Then
+                If (CDbl(oDvHeader(0)(9).ToString.Trim() <> 0)) Then
+                    If iCount > 0 Then
+                        oInvoice.Lines.Add()
                     End If
-                End If
-                If Not (oDvHeader(0)(11).ToString = String.Empty) Then
-                    If (CDbl(oDvHeader(0)(11).ToString.Trim() <> 0)) Then
-                        If iCount > 0 Then
-                            oInvoice.Lines.Add()
-                        End If
 
-                        dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sRoundingItem & "'"
-                        If dtVatGroup.DefaultView.Count = 0 Then
-                            sErrDesc = "ItemCode :: " & p_oCompDef.sRoundingItem & " provided does not exist in SAP."
-                            Call WriteToLogFile(sErrDesc, sFuncName)
-                            Throw New ArgumentException(sErrDesc)
-                        End If
-                        oInvoice.Lines.ItemCode = p_oCompDef.sRoundingItem
-                        oInvoice.Lines.Quantity = 1
-                        oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(11))
-                        bIsLineAdded = True
-                        iCount = iCount + 1
-                    End If
-                End If
-                If Not (oDvHeader(0)(12).ToString = String.Empty) Then
-                    If (CDbl(oDvHeader(0)(12).ToString.Trim() <> 0)) Then
-                        If iCount > 0 Then
-                            oInvoice.Lines.Add()
-                        End If
-
-                        dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sExcessItem & "'"
-                        If dtVatGroup.DefaultView.Count = 0 Then
-                            sErrDesc = "ItemCode :: " & p_oCompDef.sExcessItem & " provided does not exist in SAP."
-                            Call WriteToLogFile(sErrDesc, sFuncName)
-                            Throw New ArgumentException(sErrDesc)
-                        End If
-                        oInvoice.Lines.ItemCode = p_oCompDef.sExcessItem
-                        oInvoice.Lines.Quantity = 1
-                        oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(12))
-                        bIsLineAdded = True
-                        iCount = iCount + 1
-                    End If
-                End If
-                If Not (oDvHeader(0)(13).ToString = String.Empty) Then
-                    If (CDbl(oDvHeader(0)(13).ToString.Trim() <> 0)) Then
-                        If iCount > 0 Then
-                            oInvoice.Lines.Add()
-                        End If
-
-                        dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sTippingItem & "'"
-                        If dtVatGroup.DefaultView.Count = 0 Then
-                            sErrDesc = "ItemCode :: " & p_oCompDef.sTippingItem & " provided does not exist in SAP."
-                            Call WriteToLogFile(sErrDesc, sFuncName)
-                            Throw New ArgumentException(sErrDesc)
-                        End If
-                        oInvoice.Lines.ItemCode = p_oCompDef.sTippingItem
-                        oInvoice.Lines.Quantity = 1
-                        oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(13))
-                        bIsLineAdded = True
-                        iCount = iCount + 1
-                    End If
-                End If
-
-                If bIsLineAdded = True Then
-                    If oInvoice.Add() <> 0 Then
-                        sErrDesc = "Error " & p_oCompany.GetLastErrorDescription
-                        Console.WriteLine("Error while adding Invoice")
+                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sServChargeItem & "'"
+                    If dtVatGroup.DefaultView.Count = 0 Then
+                        sErrDesc = "ItemCode :: " & p_oCompDef.sServChargeItem & " provided does not exist in SAP."
+                        Call WriteToLogFile(sErrDesc, sFuncName)
                         Throw New ArgumentException(sErrDesc)
-                    Else
-                        Dim iDocEntry As Integer
-                        iDocEntry = p_oCompany.GetNewObjectKey()
-                        sInvDocEntry = iDocEntry
-                        System.Runtime.InteropServices.Marshal.ReleaseComObject(oInvoice)
-
-                        Console.WriteLine("Invoice document Created successfully :: " & iDocEntry)
-                        If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Invoice document Created successfully :: " & iDocEntry, sFuncName)
                     End If
+                    oInvoice.Lines.ItemCode = p_oCompDef.sServChargeItem
+                    oInvoice.Lines.Quantity = 1
+                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(9))
+                    bIsLineAdded = True
+                    iCount = iCount + 1
                 End If
+            End If
+            If Not (oDvHeader(0)(11).ToString = String.Empty) Then
+                If (CDbl(oDvHeader(0)(11).ToString.Trim() <> 0)) Then
+                    If iCount > 0 Then
+                        oInvoice.Lines.Add()
+                    End If
 
+                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sRoundingItem & "'"
+                    If dtVatGroup.DefaultView.Count = 0 Then
+                        sErrDesc = "ItemCode :: " & p_oCompDef.sRoundingItem & " provided does not exist in SAP."
+                        Call WriteToLogFile(sErrDesc, sFuncName)
+                        Throw New ArgumentException(sErrDesc)
+                    End If
+                    oInvoice.Lines.ItemCode = p_oCompDef.sRoundingItem
+                    oInvoice.Lines.Quantity = 1
+                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(11))
+                    bIsLineAdded = True
+                    iCount = iCount + 1
+                End If
+            End If
+            If Not (oDvHeader(0)(12).ToString = String.Empty) Then
+                If (CDbl(oDvHeader(0)(12).ToString.Trim() <> 0)) Then
+                    If iCount > 0 Then
+                        oInvoice.Lines.Add()
+                    End If
+
+                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sExcessItem & "'"
+                    If dtVatGroup.DefaultView.Count = 0 Then
+                        sErrDesc = "ItemCode :: " & p_oCompDef.sExcessItem & " provided does not exist in SAP."
+                        Call WriteToLogFile(sErrDesc, sFuncName)
+                        Throw New ArgumentException(sErrDesc)
+                    End If
+                    oInvoice.Lines.ItemCode = p_oCompDef.sExcessItem
+                    oInvoice.Lines.Quantity = 1
+                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(12))
+                    bIsLineAdded = True
+                    iCount = iCount + 1
+                End If
+            End If
+            If Not (oDvHeader(0)(13).ToString = String.Empty) Then
+                If (CDbl(oDvHeader(0)(13).ToString.Trim() <> 0)) Then
+                    If iCount > 0 Then
+                        oInvoice.Lines.Add()
+                    End If
+
+                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sTippingItem & "'"
+                    If dtVatGroup.DefaultView.Count = 0 Then
+                        sErrDesc = "ItemCode :: " & p_oCompDef.sTippingItem & " provided does not exist in SAP."
+                        Call WriteToLogFile(sErrDesc, sFuncName)
+                        Throw New ArgumentException(sErrDesc)
+                    End If
+                    oInvoice.Lines.ItemCode = p_oCompDef.sTippingItem
+                    oInvoice.Lines.Quantity = 1
+                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(13))
+                    bIsLineAdded = True
+                    iCount = iCount + 1
+                End If
+            End If
+            If bIsLineAdded = True Then
+                If oInvoice.Add() <> 0 Then
+                    sErrDesc = "Error " & p_oCompany.GetLastErrorDescription
+                    Console.WriteLine("Error while adding Invoice")
+                    Throw New ArgumentException(sErrDesc)
+                Else
+                    Dim iDocEntry As Integer
+                    iDocEntry = p_oCompany.GetNewObjectKey()
+                    sInvDocEntry = iDocEntry
+
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(oInvoice)
+
+                    Console.WriteLine("Invoice document Created successfully :: " & iDocEntry)
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Invoice document Created successfully :: " & iDocEntry, sFuncName)
+                End If
             End If
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with SUCCESS", sFuncName)
@@ -448,6 +453,7 @@
                 Throw New ArgumentException(sErrDesc)
             End If
 
+            'oPayments.DocObjectCode = SAPbobsCOM.BoPaymentsObjectType.bopot_IncomingPayments
             oPayments.DocType = SAPbobsCOM.BoRcptTypes.rCustomer
 
             Dim iIndex As Integer = oDv(0)(2).ToString.IndexOf(" ")
@@ -484,10 +490,12 @@
             Next
 
             If dTotalPayAmt > 0.0 Then
-                oPayments.Invoices.DocEntry = sInvDocEntry
+                oPayments.Invoices.DocEntry = Convert.ToInt32(sInvDocEntry)
                 oPayments.Invoices.InvoiceType = SAPbobsCOM.BoRcptInvTypes.it_Invoice
                 oPayments.Invoices.DocLine = 0
+                oPayments.Invoices.DiscountPercent = 0.0
                 oPayments.Invoices.SumApplied = dTotalPayAmt
+                oPayments.Invoices.Add()
 
                 For j As Integer = 0 To oDv.Count - 1
                     Dim sSAPTenderCode As String = String.Empty
@@ -544,6 +552,134 @@
             Call WriteToLogFile(sErrDesc, sFuncName)
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with ERROR", sFuncName)
             CreatePayment = RTN_ERROR
+        End Try
+    End Function
+
+    Private Function CreatePayment_Working_Backup(ByVal oDv As DataView, ByVal sInvDocEntry As String, ByRef sErrDesc As String) As Long
+        Dim sFuncName As String = "CreatePayment_Working_Backup"
+        Dim sSQL As String = String.Empty
+        Dim sPosTenderCode As String = String.Empty
+        Dim oRs As SAPbobsCOM.Recordset = Nothing
+        Dim oPayments As SAPbobsCOM.IPayments = Nothing
+        oPayments = p_oCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oIncomingPayments)
+        Dim bIsLineAdded As Boolean = False
+        Dim sCardCode As String = String.Empty
+        Dim sFileId As String = String.Empty
+
+        Try
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Starting Function", sFuncName)
+
+            sFileId = oDv(0)(0).ToString.Trim()
+
+            oRs = p_oCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.BoRecordset)
+
+            sSQL = "SELECT ""CardCode"" FROM ""OINV"" WHERE ""DocEntry"" = '" & sInvDocEntry & "' "
+            oRs.DoQuery(sSQL)
+            If oRs.RecordCount > 0 Then
+                sCardCode = oRs.Fields.Item("CardCode").Value
+            Else
+                sErrDesc = "CardCode not found for creating payment for file id " & sFileId
+                Throw New ArgumentException(sErrDesc)
+            End If
+
+            'oPayments.DocObjectCode = SAPbobsCOM.BoPaymentsObjectType.bopot_IncomingPayments
+            oPayments.DocType = SAPbobsCOM.BoRcptTypes.rCustomer
+
+            Dim iIndex As Integer = oDv(0)(2).ToString.IndexOf(" ")
+            Dim sDate As String
+            If iIndex > -1 Then
+                sDate = oDv(0)(2).ToString.Substring(0, iIndex)
+            Else
+                sDate = oDv(0)(2).ToString
+            End If
+            Dim dtDocDate As Date
+            Dim format() = {"dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "dd.MM.yyyy", "yyyyMMdd", "MMddYYYY", "M/dd/yyyy", "MM/dd/YYYY"}
+            Date.TryParseExact(sDate, format, System.Globalization.DateTimeFormatInfo.InvariantInfo, Globalization.DateTimeStyles.None, dtDocDate)
+
+            oPayments.CardCode = sCardCode
+            oPayments.DocDate = dtDocDate
+            oPayments.UserFields.Fields.Item("U_WHSCode").Value = oDv(0)(1).ToString.Trim()
+            oPayments.UserFields.Fields.Item("U_POSNo").Value = oDv(0)(1).ToString.Trim()
+
+            Console.WriteLine("Selecting Payment methods")
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Selecting Payment methods", sFuncName)
+
+            Dim dTotalPayAmt As Double = 0.0
+            Dim dPayAmt As Double = 0.0
+            For i As Integer = 0 To oDv.Count - 1
+                If Not (oDv(i)(0).ToString = String.Empty) Then
+                    If Not (oDv(i)(4).ToString.Trim = String.Empty) Then
+                        dPayAmt = oDv(i)(4).ToString.Trim
+                    Else
+                        dPayAmt = 0.0
+                    End If
+
+                    dTotalPayAmt = Math.Round(dTotalPayAmt, 2) + Math.Round(dPayAmt, 2)
+                End If
+            Next
+
+            If dTotalPayAmt > 0.0 Then
+                oPayments.Invoices.DocEntry = Convert.ToInt32(sInvDocEntry)
+                oPayments.Invoices.InvoiceType = SAPbobsCOM.BoRcptInvTypes.it_Invoice
+                oPayments.Invoices.DocLine = 0
+                oPayments.Invoices.SumApplied = dTotalPayAmt
+                oPayments.Invoices.Add()
+
+                For j As Integer = 0 To oDv.Count - 1
+                    Dim sSAPTenderCode As String = String.Empty
+                    sPosTenderCode = oDv(j)(3).ToString.Trim()
+                    dtTenderCode.DefaultView.RowFilter = "U_POS_TENDER_CODE = '" & sPosTenderCode.ToUpper() & "'"
+                    If dtTenderCode.DefaultView.Count = 0 Then
+                        sErrDesc = "Tendercode  :: " & sPosTenderCode & " Not exists in table."
+                        Console.WriteLine(sErrDesc)
+                        Call WriteToLogFile(sErrDesc, sFuncName)
+                        Throw New ArgumentException(sErrDesc)
+                    Else
+                        sSAPTenderCode = dtTenderCode.DefaultView.Item(0)(1).ToString().Trim()
+                    End If
+
+                    sSQL = "SELECT T0.""CreditCard"" FROM ""OCRC"" T0 WHERE UPPER(T0.""CardName"") ='" & sSAPTenderCode.ToUpper() & "'"
+                    oRs.DoQuery(sSQL)
+                    If oRs.RecordCount > 0 Then
+                        oPayments.CreditCards.CreditCard = oRs.Fields.Item("CreditCard").Value
+                        oPayments.CreditCards.CreditCardNumber = oDv(j)(0).ToString.Trim()
+                        oPayments.CreditCards.CreditSum = CDbl(oDv(j)(4))
+                        Dim sCrdtValidDt As Date = "9999-12-01"
+                        oPayments.CreditCards.CardValidUntil = sCrdtValidDt
+                        oPayments.CreditCards.VoucherNum = oDv(j)(1).ToString.Trim() & "-" & DateTime.Now.ToString("yyyyMMdd")
+                        oPayments.CreditCards.Add()
+                    Else
+                        sErrDesc = "Credit card details for : " & sSAPTenderCode & " Not found"
+                        Throw New ArgumentException(sErrDesc)
+                    End If
+                Next
+
+                bIsLineAdded = True
+            Else
+                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Total payment amount for file id " & sFileId & " is 0. No Payment will be created", sFuncName)
+            End If
+
+            If bIsLineAdded = True Then
+                If oPayments.Add() <> 0 Then
+                    sErrDesc = p_oCompany.GetLastErrorDescription()
+                    Throw New ArgumentException(sErrDesc)
+                Else
+                    Dim iDocEntry As Integer
+                    p_oCompany.GetNewObjectCode(iDocEntry)
+
+                    Console.WriteLine("Payment document successfully created. DocEntry is :: " & iDocEntry)
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Payment document successfully created. DocEntry is :: " & iDocEntry, sFuncName)
+
+                End If
+            End If
+
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with SUCCESS", sFuncName)
+            CreatePayment_Working_Backup = RTN_SUCCESS
+        Catch ex As Exception
+            sErrDesc = ex.Message
+            Call WriteToLogFile(sErrDesc, sFuncName)
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with ERROR", sFuncName)
+            CreatePayment_Working_Backup = RTN_ERROR
         End Try
     End Function
 
