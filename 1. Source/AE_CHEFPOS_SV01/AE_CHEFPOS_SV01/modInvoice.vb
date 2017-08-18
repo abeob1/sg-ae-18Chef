@@ -299,7 +299,7 @@
                     End If
                     oInvoice.Lines.ItemCode = sItemCode
                     oInvoice.Lines.Quantity = CDbl(oDvDetail_Grouped(i)(9))
-                    oInvoice.Lines.UnitPrice = CDbl(oDvDetail_Grouped(i)(8))
+                    'oInvoice.Lines.UnitPrice = CDbl(oDvDetail_Grouped(i)(8))
                     oInvoice.Lines.WarehouseCode = oDvDetail_Grouped(i)(4).ToString.Trim()
                     oInvoice.Lines.CostingCode = oDvHeader(0)(3).ToString.Trim()
                     oInvoice.Lines.CostingCode2 = oDvHeader(0)(2).ToString.Trim()
