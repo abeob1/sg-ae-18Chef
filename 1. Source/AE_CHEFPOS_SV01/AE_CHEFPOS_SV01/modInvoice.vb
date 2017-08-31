@@ -3,7 +3,6 @@
     Private dtBPMaster As DataTable
     Private dtCheckType As DataTable
     Private dtVatGroup As DataTable
-    Private dtTenderCode As DataTable
 
     Public Function ProcessInvoiceFiles(ByVal file_Header As System.IO.FileInfo, ByVal file_Detail As System.IO.FileInfo, ByVal file_Payment As System.IO.FileInfo, ByVal oDvHeader As DataView, ByVal oDvDeatil As DataView, ByVal oDvCollections As DataView, ByRef sErrDesc As String) As Long
         Dim sFuncName As String = "ProcessInvoiceFiles"
@@ -23,17 +22,13 @@
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING SQL :" & sSQL, sFuncName)
                 dtBPMaster = ExecuteQueryReturnDataTable(sSQL, p_oCompDef.sSAPDBName)
 
-                sSQL = "SELECT UPPER(""U_CHECKTYPE"") AS ""CHECKTYPE"",U_SAPACCOUNT FROM " & p_oCompDef.sSAPDBName & ".""@AE_CHECKTYPE"" "
+                sSQL = "SELECT UPPER(""Code"") AS ""CHECKTYPE"",""Name"" AS ""U_SAPACCOUNT"" FROM " & p_oCompDef.sSAPDBName & ".""@CHECKTYPE"" "
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING SQL :" & sSQL, sFuncName)
                 dtCheckType = ExecuteQueryReturnDataTable(sSQL, p_oCompDef.sSAPDBName)
 
                 sSQL = "SELECT ""ItemCode"",""VatGourpSa"" FROM " & p_oCompany.CompanyDB & ".""OITM"" WHERE ""frozenFor""='N'"
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING  SQL :" & sSQL, sFuncName)
                 dtVatGroup = ExecuteQueryReturnDataTable(sSQL, p_oCompany.CompanyDB)
-
-                sSQL = "SELECT UPPER(T0.""U_POS_TENDER_CODE"") AS ""U_POS_TENDER_CODE"", UPPER(T0.""U_SAP_TENDER_CODE"") AS ""U_SAP_TENDER_CODE"" FROM " & p_oCompDef.sSAPDBName & ".""@AE_TENDERCODE""  T0 "
-                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING SQL :" & sSQL, sFuncName)
-                dtTenderCode = ExecuteQueryReturnDataTable(sSQL, p_oCompDef.sSAPDBName)
 
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling StartTransaction", sFuncName)
                 If StartTransaction(sErrDesc) <> RTN_SUCCESS Then Throw New ArgumentException(sErrDesc)
@@ -498,19 +493,9 @@
                 oPayments.Invoices.Add()
 
                 For j As Integer = 0 To oDv.Count - 1
-                    Dim sSAPTenderCode As String = String.Empty
                     sPosTenderCode = oDv(j)(3).ToString.Trim()
-                    dtTenderCode.DefaultView.RowFilter = "U_POS_TENDER_CODE = '" & sPosTenderCode.ToUpper() & "'"
-                    If dtTenderCode.DefaultView.Count = 0 Then
-                        sErrDesc = "Tendercode  :: " & sPosTenderCode & " Not exists in table."
-                        Console.WriteLine(sErrDesc)
-                        Call WriteToLogFile(sErrDesc, sFuncName)
-                        Throw New ArgumentException(sErrDesc)
-                    Else
-                        sSAPTenderCode = dtTenderCode.DefaultView.Item(0)(1).ToString().Trim()
-                    End If
 
-                    sSQL = "SELECT T0.""CreditCard"" FROM ""OCRC"" T0 WHERE UPPER(T0.""CardName"") ='" & sSAPTenderCode.ToUpper() & "'"
+                    sSQL = "SELECT T0.""CreditCard"" FROM ""OCRC"" T0 WHERE UPPER(T0.""CardName"") ='" & sPosTenderCode.ToUpper() & "'"
                     oRs.DoQuery(sSQL)
                     If oRs.RecordCount > 0 Then
                         oPayments.CreditCards.CreditCard = oRs.Fields.Item("CreditCard").Value
@@ -521,7 +506,7 @@
                         oPayments.CreditCards.VoucherNum = oDv(j)(1).ToString.Trim() & "-" & DateTime.Now.ToString("yyyyMMdd")
                         oPayments.CreditCards.Add()
                     Else
-                        sErrDesc = "Credit card details for : " & sSAPTenderCode & " Not found"
+                        sErrDesc = "Credit card details for : " & sPosTenderCode & " Not found"
                         Throw New ArgumentException(sErrDesc)
                     End If
                 Next
@@ -626,19 +611,9 @@
                 oPayments.Invoices.Add()
 
                 For j As Integer = 0 To oDv.Count - 1
-                    Dim sSAPTenderCode As String = String.Empty
                     sPosTenderCode = oDv(j)(3).ToString.Trim()
-                    dtTenderCode.DefaultView.RowFilter = "U_POS_TENDER_CODE = '" & sPosTenderCode.ToUpper() & "'"
-                    If dtTenderCode.DefaultView.Count = 0 Then
-                        sErrDesc = "Tendercode  :: " & sPosTenderCode & " Not exists in table."
-                        Console.WriteLine(sErrDesc)
-                        Call WriteToLogFile(sErrDesc, sFuncName)
-                        Throw New ArgumentException(sErrDesc)
-                    Else
-                        sSAPTenderCode = dtTenderCode.DefaultView.Item(0)(1).ToString().Trim()
-                    End If
 
-                    sSQL = "SELECT T0.""CreditCard"" FROM ""OCRC"" T0 WHERE UPPER(T0.""CardName"") ='" & sSAPTenderCode.ToUpper() & "'"
+                    sSQL = "SELECT T0.""CreditCard"" FROM ""OCRC"" T0 WHERE UPPER(T0.""CardName"") ='" & sPosTenderCode.ToUpper() & "'"
                     oRs.DoQuery(sSQL)
                     If oRs.RecordCount > 0 Then
                         oPayments.CreditCards.CreditCard = oRs.Fields.Item("CreditCard").Value
@@ -649,7 +624,7 @@
                         oPayments.CreditCards.VoucherNum = oDv(j)(1).ToString.Trim() & "-" & DateTime.Now.ToString("yyyyMMdd")
                         oPayments.CreditCards.Add()
                     Else
-                        sErrDesc = "Credit card details for : " & sSAPTenderCode & " Not found"
+                        sErrDesc = "Credit card details for : " & sPosTenderCode & " Not found"
                         Throw New ArgumentException(sErrDesc)
                     End If
                 Next

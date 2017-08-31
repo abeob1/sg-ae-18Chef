@@ -91,7 +91,7 @@
 
                 If Not oDVHeaderData Is Nothing Then
                     Dim files_detail() As System.IO.FileInfo
-                    Dim sDetailFile As String = "SALESHDET" & sFileDate
+                    Dim sDetailFile As String = "SALESDET" & sFileDate
                     files_detail = DirInfo.GetFiles(sDetailFile)
 
                     Dim files_Payment() As System.IO.FileInfo
