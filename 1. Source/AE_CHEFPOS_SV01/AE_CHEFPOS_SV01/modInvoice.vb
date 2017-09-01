@@ -237,6 +237,8 @@
                 sCardCode = dtBPMaster.DefaultView.Item(0)(0).ToString().Trim()
             End If
 
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("CardCode is " & sCardCode, sFuncName)
+
             Dim iIndex As Integer = oDvHeader(0)(5).ToString.IndexOf(" ")
             Dim sDate As String
             If iIndex > -1 Then
@@ -247,6 +249,8 @@
             Dim dtDocDate As Date
             Dim format() = {"dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "dd.MM.yyyy", "yyyyMMdd", "MMddYYYY", "M/dd/yyyy", "MM/dd/YYYY"}
             Date.TryParseExact(sDate, format, System.Globalization.DateTimeFormatInfo.InvariantInfo, Globalization.DateTimeStyles.None, dtDocDate)
+
+            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning header values", sFuncName)
 
             oInvoice.CardCode = sCardCode
             oInvoice.DocDate = dtDocDate
@@ -264,6 +268,8 @@
             Dim iCount As Integer = 0
             If oDvDetail_Grouped.Count > 0 Then
                 For i As Integer = 0 To oDvDetail_Grouped.Count - 1
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Processing detail line " & i + 1, sFuncName)
+
                     Dim sItemCode As String = String.Empty
                     Dim sDeliveryMode As String = String.Empty
                     Dim sAccountCode As String = String.Empty
@@ -272,10 +278,14 @@
                     sItemCode = oDvDetail_Grouped(i)(2).ToString.Trim()
                     sDeliveryMode = oDvDetail_Grouped(i)(6).ToString().Trim()
 
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Delivery type for item " & sItemCode & " is " & sDeliveryMode, sFuncName)
+
+                    sAccountCode = String.Empty
                     dtCheckType.DefaultView.RowFilter = "CHECKTYPE = '" & sDeliveryMode.ToUpper() & "'"
                     If dtCheckType.DefaultView.Count = 0 Then
                         sErrDesc = "Account code not found for checktype :: " & sDeliveryMode
                         If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug(sErrDesc, sFuncName)
+                        sErrDesc = ""
                     Else
                         sAccountCode = dtCheckType.DefaultView.Item(0)(1).ToString.Trim()
                     End If
@@ -320,6 +330,7 @@
             End If
             If Not (oDvHeader(0)(9).ToString = String.Empty) Then
                 If (CDbl(oDvHeader(0)(9).ToString.Trim() <> 0)) Then
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning Service charges", sFuncName)
                     If iCount > 0 Then
                         oInvoice.Lines.Add()
                     End If
@@ -337,27 +348,9 @@
                     iCount = iCount + 1
                 End If
             End If
-            If Not (oDvHeader(0)(11).ToString = String.Empty) Then
-                If (CDbl(oDvHeader(0)(11).ToString.Trim() <> 0)) Then
-                    If iCount > 0 Then
-                        oInvoice.Lines.Add()
-                    End If
-
-                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sRoundingItem & "'"
-                    If dtVatGroup.DefaultView.Count = 0 Then
-                        sErrDesc = "ItemCode :: " & p_oCompDef.sRoundingItem & " provided does not exist in SAP."
-                        Call WriteToLogFile(sErrDesc, sFuncName)
-                        Throw New ArgumentException(sErrDesc)
-                    End If
-                    oInvoice.Lines.ItemCode = p_oCompDef.sRoundingItem
-                    oInvoice.Lines.Quantity = 1
-                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(11))
-                    bIsLineAdded = True
-                    iCount = iCount + 1
-                End If
-            End If
             If Not (oDvHeader(0)(12).ToString = String.Empty) Then
                 If (CDbl(oDvHeader(0)(12).ToString.Trim() <> 0)) Then
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning Excess charges", sFuncName)
                     If iCount > 0 Then
                         oInvoice.Lines.Add()
                     End If
@@ -377,6 +370,7 @@
             End If
             If Not (oDvHeader(0)(13).ToString = String.Empty) Then
                 If (CDbl(oDvHeader(0)(13).ToString.Trim() <> 0)) Then
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning Tipping charges", sFuncName)
                     If iCount > 0 Then
                         oInvoice.Lines.Add()
                     End If
@@ -394,7 +388,28 @@
                     iCount = iCount + 1
                 End If
             End If
+            If Not (oDvHeader(0)(11).ToString = String.Empty) Then
+                If (CDbl(oDvHeader(0)(11).ToString.Trim() <> 0)) Then
+                    If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning Rounding charges", sFuncName)
+                    If iCount > 0 Then
+                        oInvoice.Lines.Add()
+                    End If
+
+                    dtVatGroup.DefaultView.RowFilter = "ItemCode = '" & p_oCompDef.sRoundingItem & "'"
+                    If dtVatGroup.DefaultView.Count = 0 Then
+                        sErrDesc = "ItemCode :: " & p_oCompDef.sRoundingItem & " provided does not exist in SAP."
+                        Call WriteToLogFile(sErrDesc, sFuncName)
+                        Throw New ArgumentException(sErrDesc)
+                    End If
+                    oInvoice.Lines.ItemCode = p_oCompDef.sRoundingItem
+                    oInvoice.Lines.Quantity = 1
+                    oInvoice.Lines.UnitPrice = CDbl(oDvHeader(0)(11))
+                    bIsLineAdded = True
+                    iCount = iCount + 1
+                End If
+            End If
             If bIsLineAdded = True Then
+                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Attempting to Add invoice", sFuncName)
                 If oInvoice.Add() <> 0 Then
                     sErrDesc = "Error " & p_oCompany.GetLastErrorDescription
                     Console.WriteLine("Error while adding Invoice")
