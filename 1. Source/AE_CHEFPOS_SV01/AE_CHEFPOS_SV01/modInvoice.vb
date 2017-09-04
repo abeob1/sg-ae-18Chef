@@ -3,6 +3,7 @@
     Private dtBPMaster As DataTable
     Private dtCheckType As DataTable
     Private dtVatGroup As DataTable
+    Private dtCostCenter As DataTable
 
     Public Function ProcessInvoiceFiles(ByVal file_Header As System.IO.FileInfo, ByVal file_Detail As System.IO.FileInfo, ByVal file_Payment As System.IO.FileInfo, ByVal oDvHeader As DataView, ByVal oDvDeatil As DataView, ByVal oDvCollections As DataView, ByRef sErrDesc As String) As Long
         Dim sFuncName As String = "ProcessInvoiceFiles"
@@ -29,6 +30,10 @@
                 sSQL = "SELECT ""ItemCode"",""VatGourpSa"" FROM " & p_oCompany.CompanyDB & ".""OITM"" WHERE ""frozenFor""='N'"
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING  SQL :" & sSQL, sFuncName)
                 dtVatGroup = ExecuteQueryReturnDataTable(sSQL, p_oCompany.CompanyDB)
+
+                sSQL = "SELECT ""PrcCode"",UPPER(""PrcName"") AS ""PrcName"",""DimCode"" FROM ""OPRC"" "
+                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING  SQL :" & sSQL, sFuncName)
+                dtCostCenter = ExecuteQueryReturnDataTable(sSQL, p_oCompany.CompanyDB)
 
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling StartTransaction", sFuncName)
                 If StartTransaction(sErrDesc) <> RTN_SUCCESS Then Throw New ArgumentException(sErrDesc)
@@ -210,6 +215,12 @@
         Dim sFuncName As String = "CreateInvoice"
         Dim sFileId As String = String.Empty
         Dim sCardCode As String = String.Empty
+        Dim sConcept As String = String.Empty
+        Dim sBrand As String = String.Empty
+        Dim sOutLet As String = String.Empty
+        Dim sOcrCode As String = String.Empty
+        Dim sOcrCode2 As String = String.Empty
+        Dim sOcrCode3 As String = String.Empty
         Dim bIsLineAdded As Boolean = False
 
         Try
@@ -252,12 +263,37 @@
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Assigning header values", sFuncName)
 
+            sConcept = oDvHeader(0)(2).ToString.Trim()
+            sBrand = oDvHeader(0)(3).ToString.Trim()
+            sOutLet = oDvHeader(0)(4).ToString.Trim()
+
+            dtCostCenter.DefaultView.RowFilter = "PrcName = '" & sBrand.ToUpper() & "' AND DimCode = 1 "
+            If dtCostCenter.DefaultView.Count = 0 Then
+                sOcrCode = String.Empty
+            Else
+                sOcrCode = dtCostCenter.DefaultView.Item(0)(0).ToString().Trim()
+            End If
+
+            dtCostCenter.DefaultView.RowFilter = "PrcName = '" & sConcept.ToUpper() & "' AND DimCode = 2 "
+            If dtCostCenter.DefaultView.Count = 0 Then
+                sOcrCode2 = String.Empty
+            Else
+                sOcrCode2 = dtCostCenter.DefaultView.Item(0)(0).ToString().Trim()
+            End If
+
+            dtCostCenter.DefaultView.RowFilter = "PrcName = '" & sOutLet.ToUpper() & "' AND DimCode = 3 "
+            If dtCostCenter.DefaultView.Count = 0 Then
+                sOcrCode3 = String.Empty
+            Else
+                sOcrCode3 = dtCostCenter.DefaultView.Item(0)(0).ToString().Trim()
+            End If
+
             oInvoice.CardCode = sCardCode
             oInvoice.DocDate = dtDocDate
             oInvoice.NumAtCard = oDvHeader(0)(4).ToString.Trim() & "-" & sDate & "-" & oDvHeader(0)(7).ToString.Trim()
-            oInvoice.UserFields.Fields.Item("U_Concept").Value = oDvHeader(0)(2).ToString.Trim()
-            oInvoice.UserFields.Fields.Item("U_BRAND").Value = oDvHeader(0)(3).ToString.Trim()
-            oInvoice.UserFields.Fields.Item("U_Outlet").Value = oDvHeader(0)(4).ToString.Trim()
+            oInvoice.UserFields.Fields.Item("U_Concept").Value = sConcept
+            oInvoice.UserFields.Fields.Item("U_BRAND").Value = sBrand
+            oInvoice.UserFields.Fields.Item("U_Outlet").Value = sOutLet
             oInvoice.UserFields.Fields.Item("U_POSNo").Value = oDvHeader(0)(4).ToString.Trim()
             oInvoice.UserFields.Fields.Item("U_MEALPERIOD").Value = oDvHeader(0)(6).ToString.Trim()
             oInvoice.UserFields.Fields.Item("U_HOUR").Value = oDvHeader(0)(7).ToString.Trim()
@@ -306,10 +342,16 @@
                     oInvoice.Lines.Quantity = CDbl(oDvDetail_Grouped(i)(9))
                     'oInvoice.Lines.UnitPrice = CDbl(oDvDetail_Grouped(i)(8))
                     oInvoice.Lines.WarehouseCode = oDvDetail_Grouped(i)(4).ToString.Trim()
-                    oInvoice.Lines.CostingCode = oDvHeader(0)(3).ToString.Trim()
-                    oInvoice.Lines.CostingCode2 = oDvHeader(0)(2).ToString.Trim()
-                    oInvoice.Lines.CostingCode3 = oDvDetail_Grouped(i)(4).ToString.Trim()
-                    oInvoice.Lines.COGSCostingCode3 = oDvDetail_Grouped(i)(4).ToString.Trim()
+                    If Not (sOcrCode = String.Empty) Then
+                        oInvoice.Lines.CostingCode = sOcrCode
+                    End If
+                    If Not (sOcrCode2 = String.Empty) Then
+                        oInvoice.Lines.CostingCode2 = sOcrCode2
+                    End If
+                    If Not (sOcrCode3 = String.Empty) Then
+                        oInvoice.Lines.CostingCode3 = sOcrCode3
+                    End If
+                    'oInvoice.Lines.COGSCostingCode3 = oDvDetail_Grouped(i)(4).ToString.Trim()
                     If Not (sAccountCode = String.Empty) Then
                         oInvoice.Lines.AccountCode = sAccountCode
                     End If

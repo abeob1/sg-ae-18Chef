@@ -16,9 +16,9 @@
             If p_oCompany.Connected Then
                 Console.WriteLine("Company connected to " & p_oCompany.CompanyDB)
 
-                sSQL = "SELECT ""ItmsGrpCod"",UPPER(""ItmsGrpNam"") AS ""ItmsGrpNam"" FROM " & p_oCompDef.sSAPDBName & ".""OITB"" "
-                If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING SQL :" & sSQL, sFuncName)
-                dtItemGroup = ExecuteQueryReturnDataTable(sSQL, p_oCompDef.sSAPDBName)
+                'sSQL = "SELECT ""ItmsGrpCod"",UPPER(""ItmsGrpNam"") AS ""ItmsGrpNam"" FROM " & p_oCompDef.sSAPDBName & ".""OITB"" "
+                'If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("EXECUTING SQL :" & sSQL, sFuncName)
+                'dtItemGroup = ExecuteQueryReturnDataTable(sSQL, p_oCompDef.sSAPDBName)
 
                 If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Calling StartTransaction()", sFuncName)
                 If StartTransaction(sErrDesc) <> RTN_SUCCESS Then Throw New ArgumentException(sErrDesc)
@@ -40,19 +40,19 @@
                             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Item Code " & sItemCode & " already exists in SAP", sFuncName)
                         Else
 
-                            dtItemGroup.DefaultView.RowFilter = "ItmsGrpNam = '" & sItmGrpNam.ToUpper() & "'"
-                            If dtItemGroup.DefaultView.Count = 0 Then
-                                sErrDesc = "Item Group name :: " & sItmGrpNam & " Not exists in SAP."
-                                Console.WriteLine(sErrDesc)
-                                Call WriteToLogFile(sErrDesc, sFuncName)
-                                Throw New ArgumentException(sErrDesc)
-                            Else
-                                sItmGrpCod = dtItemGroup.DefaultView.Item(0)(0).ToString().Trim()
-                            End If
+                            'dtItemGroup.DefaultView.RowFilter = "ItmsGrpNam = '" & sItmGrpNam.ToUpper() & "'"
+                            'If dtItemGroup.DefaultView.Count = 0 Then
+                            '    sErrDesc = "Item Group name :: " & sItmGrpNam & " Not exists in SAP."
+                            '    Console.WriteLine(sErrDesc)
+                            '    Call WriteToLogFile(sErrDesc, sFuncName)
+                            '    Throw New ArgumentException(sErrDesc)
+                            'Else
+                            '    sItmGrpCod = dtItemGroup.DefaultView.Item(0)(0).ToString().Trim()
+                            'End If
 
                             oItems.ItemCode = sItemCode
                             oItems.ItemName = oDv(i)(1).ToString.Trim()
-                            oItems.ItemsGroupCode = sItmGrpCod
+                            'oItems.ItemsGroupCode = sItmGrpCod
                             oItems.Frozen = SAPbobsCOM.BoYesNoEnum.tYES
                             oItems.Valid = SAPbobsCOM.BoYesNoEnum.tNO
 
