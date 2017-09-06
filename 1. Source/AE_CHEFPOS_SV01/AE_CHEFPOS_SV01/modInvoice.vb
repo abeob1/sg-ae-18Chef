@@ -66,7 +66,7 @@
                                     If CreatePayment(oDvCollections_Grouped, sInvDocEntry, sErrDesc) <> RTN_SUCCESS Then Throw New ArgumentException(sErrDesc)
                                 End If
                             End If
-                            
+
 
                         End If
 
@@ -78,7 +78,7 @@
                 Dim oDtPay_Group As DataTable = oDvCollections.Table.DefaultView.ToTable(True, "FILEID")
                 For i As Integer = 0 To oDtPay_Group.Rows.Count - 1
                     If Not (oDtPay_Group.Rows(i).Item(0).ToString.Trim() = String.Empty Or oDtPay_Group.Rows(i).Item(0).ToString.ToUpper().Trim() = "FILEID") Then
-                        
+
                     End If
                 Next
             End If
@@ -310,9 +310,12 @@
                     Dim sDeliveryMode As String = String.Empty
                     Dim sAccountCode As String = String.Empty
                     Dim sVatGroup As String = String.Empty
+                    Dim iAdjustment As Integer = 0
+                    Dim sAdjustment As String = String.Empty
 
                     sItemCode = oDvDetail_Grouped(i)(2).ToString.Trim()
                     sDeliveryMode = oDvDetail_Grouped(i)(6).ToString().Trim()
+                    sAdjustment = oDvDetail_Grouped(i)(7).ToString().Trim()
 
                     If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Delivery type for item " & sItemCode & " is " & sDeliveryMode, sFuncName)
 
@@ -355,6 +358,25 @@
                     If Not (sAccountCode = String.Empty) Then
                         oInvoice.Lines.AccountCode = sAccountCode
                     End If
+                    If sAdjustment <> "" And sAdjustment.ToUpper() <> "REFUND CHECK" Then
+                        Try
+                            iAdjustment = sAdjustment
+                        Catch ex As Exception
+                            If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Adjustment column is not integer", sFuncName)
+                        End Try
+                        If iAdjustment >= 1 And iAdjustment <= 50 Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sAdjAct1to50
+                        End If
+                        If iAdjustment >= 51 And iAdjustment <= 99 Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sAdjAct51t99
+                        End If
+                        If iAdjustment >= 100 And iAdjustment <= 150 Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sAdjAct100to150
+                        End If
+                        If iAdjustment >= 151 And iAdjustment <= 255 Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sAdjAct151to254
+                        End If
+                    End If
                     If sVatGroup <> "" Then
                         oInvoice.Lines.VatGroup = sVatGroup
                     End If
@@ -364,6 +386,74 @@
                     oInvoice.Lines.UserFields.Fields.Item("U_ReasonCode").Value = oDvDetail_Grouped(i)(7).ToString.Trim()
                     oInvoice.Lines.UserFields.Fields.Item("U_SalesHour").Value = oDvHeader(0)(7).ToString.Trim()
                     oInvoice.Lines.UserFields.Fields.Item("U_MealPeriod").Value = oDvHeader(0)(6).ToString.Trim()
+
+                    If sAdjustment.ToUpper() = "REFUND CHECK" Then
+                        If iCount > 0 Then
+                            oInvoice.Lines.Add()
+                        End If
+                        oInvoice.Lines.ItemCode = sItemCode
+                        oInvoice.Lines.Quantity = (-1) * CDbl(oDvDetail_Grouped(i)(9))
+                        oInvoice.Lines.WarehouseCode = oDvDetail_Grouped(i)(4).ToString.Trim()
+                        If Not (sOcrCode = String.Empty) Then
+                            oInvoice.Lines.CostingCode = sOcrCode
+                        End If
+                        If Not (sOcrCode2 = String.Empty) Then
+                            oInvoice.Lines.CostingCode2 = sOcrCode2
+                        End If
+                        If Not (sOcrCode3 = String.Empty) Then
+                            oInvoice.Lines.CostingCode3 = sOcrCode3
+                        End If
+                        If Not (sAccountCode = String.Empty) Then
+                            oInvoice.Lines.AccountCode = sAccountCode
+                        End If
+                        If Not (p_oCompDef.sRefundAct = String.Empty) Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sRefundAct
+                        End If
+
+                        If sVatGroup <> "" Then
+                            oInvoice.Lines.VatGroup = sVatGroup
+                        End If
+                        oInvoice.Lines.LineTotal = CDbl(oDvDetail_Grouped(i)(10))
+                        oInvoice.Lines.UserFields.Fields.Item("U_POSNo").Value = oDvDetail_Grouped(i)(4).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_MarketSeg").Value = oDvDetail_Grouped(i)(5).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_ReasonCode").Value = oDvDetail_Grouped(i)(7).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_SalesHour").Value = oDvHeader(0)(7).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_MealPeriod").Value = oDvHeader(0)(6).ToString.Trim()
+
+                        'adding 2nd line if refund
+                        If iCount > 0 Then
+                            oInvoice.Lines.Add()
+                        End If
+                        oInvoice.Lines.ItemCode = sItemCode
+                        oInvoice.Lines.Quantity = CDbl(oDvDetail_Grouped(i)(9))
+                        oInvoice.Lines.WarehouseCode = oDvDetail_Grouped(i)(4).ToString.Trim()
+                        If Not (sOcrCode = String.Empty) Then
+                            oInvoice.Lines.CostingCode = sOcrCode
+                        End If
+                        If Not (sOcrCode2 = String.Empty) Then
+                            oInvoice.Lines.CostingCode2 = sOcrCode2
+                        End If
+                        If Not (sOcrCode3 = String.Empty) Then
+                            oInvoice.Lines.CostingCode3 = sOcrCode3
+                        End If
+                        If Not (sAccountCode = String.Empty) Then
+                            oInvoice.Lines.AccountCode = sAccountCode
+                        End If
+                        If Not (p_oCompDef.sRefundAct = String.Empty) Then
+                            oInvoice.Lines.COGSAccountCode = p_oCompDef.sRefundAct
+                        End If
+
+                        If sVatGroup <> "" Then
+                            oInvoice.Lines.VatGroup = sVatGroup
+                        End If
+                        oInvoice.Lines.LineTotal = 0.0
+                        oInvoice.Lines.UserFields.Fields.Item("U_POSNo").Value = oDvDetail_Grouped(i)(4).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_MarketSeg").Value = oDvDetail_Grouped(i)(5).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_ReasonCode").Value = oDvDetail_Grouped(i)(7).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_SalesHour").Value = oDvHeader(0)(7).ToString.Trim()
+                        oInvoice.Lines.UserFields.Fields.Item("U_MealPeriod").Value = oDvHeader(0)(6).ToString.Trim()
+                    End If
+
                     bIsLineAdded = True
                     iCount = iCount + 1
                 Next

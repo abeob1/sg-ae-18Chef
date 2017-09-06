@@ -34,10 +34,11 @@
                         Dim sItmGrpNam As String = String.Empty
                         Dim sItmGrpCod As String = String.Empty
                         sItemCode = oDv(i)(0).ToString.Trim()
-                        sItmGrpNam = oDv(i)(2).ToString.Trim()
+                        'sItmGrpNam = oDv(i)(2).ToString.Trim()
 
                         If oItems.GetByKey(sItemCode) Then
                             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Item Code " & sItemCode & " already exists in SAP", sFuncName)
+
                         Else
 
                             'dtItemGroup.DefaultView.RowFilter = "ItmsGrpNam = '" & sItmGrpNam.ToUpper() & "'"

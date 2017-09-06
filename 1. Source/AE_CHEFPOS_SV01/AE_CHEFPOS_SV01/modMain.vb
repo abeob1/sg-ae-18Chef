@@ -32,6 +32,12 @@
         Public sRoundingItem As String
         Public sExcessItem As String
         Public sServChargeItem As String
+
+        Public sAdjAct1to50 As String
+        Public sAdjAct51t99 As String
+        Public sAdjAct100to150 As String
+        Public sAdjAct151to254 As String
+        Public sRefundAct As String
     End Structure
 
     'Return Value Variable Control

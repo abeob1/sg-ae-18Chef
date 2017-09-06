@@ -32,6 +32,12 @@ Module modCommon
             oCompDef.sExcessItem = String.Empty
             oCompDef.sServChargeItem = String.Empty
 
+            oCompDef.sAdjAct1to50 = String.Empty
+            oCompDef.sAdjAct51t99 = String.Empty
+            oCompDef.sAdjAct100to150 = String.Empty
+            oCompDef.sAdjAct151to254 = String.Empty
+            oCompDef.sRefundAct = String.Empty
+
             If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("Server")) Then
                 oCompDef.sServer = ConfigurationManager.AppSettings("Server")
             End If
@@ -118,6 +124,26 @@ Module modCommon
 
             If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("SrvChargeItem")) Then
                 oCompDef.sServChargeItem = ConfigurationManager.AppSettings("SrvChargeItem")
+            End If
+
+            If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("AdjustAct(1-50)")) Then
+                oCompDef.sAdjAct1to50 = ConfigurationManager.AppSettings("AdjustAct(1-50)")
+            End If
+
+            If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("AdjustAct(51-99)")) Then
+                oCompDef.sAdjAct51t99 = ConfigurationManager.AppSettings("AdjustAct(51-99)")
+            End If
+
+            If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("AdjustAct(100-150)")) Then
+                oCompDef.sAdjAct100to150 = ConfigurationManager.AppSettings("AdjustAct(100-150)")
+            End If
+
+            If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("AdjustAct(151-254)")) Then
+                oCompDef.sAdjAct151to254 = ConfigurationManager.AppSettings("AdjustAct(151-254)")
+            End If
+
+            If Not String.IsNullOrEmpty(ConfigurationManager.AppSettings("RefundAct")) Then
+                oCompDef.sRefundAct = ConfigurationManager.AppSettings("RefundAct")
             End If
 
             If p_iDebugMode = DEBUG_ON Then Call WriteToLogFile_Debug("Completed with Success", sFunctName)
